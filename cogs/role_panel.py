@@ -26,28 +26,6 @@ class RoleEditModal(discord.ui.Modal, title="تعديل الرتبة الخاص�
         await interaction.followup.send(msg, ephemeral=True)
 
 
-class EmojiIconModal(discord.ui.Modal, title="استخدام إيموجي كأيقونة"):
-    emoji = discord.ui.TextInput(
-        label="الإيموجي",
-        placeholder="الصق هنا إيموجي عادي أو إيموجي مخصص من هذا السيرفر",
-        required=True,
-        max_length=20,
-    )
-
-    def __init__(self, bot, role_id: int):
-        super().__init__()
-        self.bot = bot
-        self.role_id = role_id
-
-    async def on_submit(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
-        success, msg = await role_utils.do_edit_role(
-            self.bot, interaction.guild, interaction.user, self.role_id,
-            emoji=self.emoji.value,
-        )
-        await interaction.followup.send(msg, ephemeral=True)
-
-
 class RemoveMemberSelect(discord.ui.Select):
     def __init__(self, bot, role_id: int, options: list[discord.SelectOption]):
         self.bot = bot
@@ -206,7 +184,38 @@ class RolePanelView(discord.ui.View):
         if error:
             await interaction.response.send_message(error, ephemeral=True)
             return
-        await interaction.response.send_modal(EmojiIconModal(self.bot, role_id))
+
+        await interaction.response.send_message(
+            "أرسل الإيموجي الذي تريد استخدامه كأيقونة لرتبتك خلال 60 ثانية في هذه القناة "
+            "(إيموجي عادي أو إيموجي مخصص من هذا السيرفر).",
+            ephemeral=True
+        )
+
+        def check(m: discord.Message):
+            return (
+                m.author.id == interaction.user.id
+                and m.channel.id == interaction.channel.id
+                and m.content.strip() != ""
+            )
+
+        try:
+            msg = await self.bot.wait_for("message", check=check, timeout=60)
+        except asyncio.TimeoutError:
+            await interaction.followup.send("انتهت المهلة، لم يتم استلام أي إيموجي.", ephemeral=True)
+            return
+
+        emoji_value = msg.content
+
+        # نحذف الرسالة فوراً بمجرد ما نسحب النص منها
+        try:
+            await msg.delete()
+        except Exception:
+            pass
+
+        success, result_msg = await role_utils.do_edit_role(
+            self.bot, interaction.guild, interaction.user, role_id, emoji=emoji_value
+        )
+        await interaction.followup.send(result_msg, ephemeral=True)
 
     @discord.ui.button(label="مدة الاشتراك", style=discord.ButtonStyle.gray, custom_id="role_panel_duration")
     async def duration_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -257,8 +266,8 @@ class RolePanelCog(commands.Cog):
                 "رفع صورة كأيقونة: استخدام صورة من جهازك كأيقونة لرتبتك\n"
                 "استخدام إيموجي كأيقونة: استخدام إيموجي (من هذا السيرفر أو من خارجه) كأيقونة لرتبتك\n"
                 "مدة الاشتراك: عرض تفاصيل اشتراكك والوقت المتبقي حتى انتهائه\n\n"
-                f"ملاحظة: في حال رغبتك بلون جديد أو أيقونة خارجية خاصة بك يرجى التوجه إلى القناة "
-                f"<#{config.TICKET_CHANNEL_ID}> والتواصل مع <@{config.ADMIN_USER_ID}>"
+                f"ملاحظة: في حال رغبتك في لون جديد يرجى التوجه لـ"
+                f"<#{config.TICKET_CHANNEL_ID}> و التواصل مع <@{config.ADMIN_USER_ID}>"
             ),
             color=discord.Color.blurple()
         )
