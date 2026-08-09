@@ -42,3 +42,5 @@ IMAGE_ONLY_CHANNEL_IDS = _get_id_list_env("IMAGE_ONLY_CHANNEL_IDS")
 MAX_SHARED_MEMBERS = _get_int_env("MAX_SHARED_MEMBERS", 2)
 
 DB_PATH = os.getenv("DB_PATH", "subscriptions.db")
+async def setup(bot: commands.Bot):
+    await bot.add_cog(ImageOnlyCog(bot))
