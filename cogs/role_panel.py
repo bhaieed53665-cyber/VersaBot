@@ -10,7 +10,11 @@ from utils import roles as role_utils
 
 class RoleEditModal(discord.ui.Modal, title="تعديل الرتبة الخاصة"):
     name = discord.ui.TextInput(label="الاسم الجديد", required=False, max_length=100)
-    emoji = discord.ui.TextInput(label="رمز تعبيري كأيقونة", required=False, max_length=10)
+    emoji = discord.ui.TextInput(
+        label="إيموجي مخصص من هذا السيرفر (اختياري)",
+        placeholder="مثال: <:اسم_الإيموجي:1234567890> — إيموجي عادي غير مدعوم بهذا السيرفر",
+        required=False, max_length=60
+    )
 
     def __init__(self, bot, role_id: int):
         super().__init__()
@@ -120,6 +124,53 @@ class RolePanelView(discord.ui.View):
         success, msg = await role_utils.do_remove_role_icon(self.bot, interaction.guild, interaction.user, role_id)
         await interaction.followup.send(msg, ephemeral=True)
 
+    @discord.ui.button(label="رفع صورة كأيقونة", style=discord.ButtonStyle.blurple, custom_id="role_panel_upload_icon")
+    async def upload_icon_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        role_id, error = await role_utils.get_owner_single_role_id(interaction.guild.id, interaction.user.id)
+        if error:
+            await interaction.response.send_message(error, ephemeral=True)
+            return
+
+        await interaction.response.send_message(
+            "أرسل الصورة التي تريد استخدامها كأيقونة لرتبتك خلال 60 ثانية في هذه القناة "
+            "(PNG أو JPG أو GIF، بحجم أقل من 256 كيلوبايت).",
+            ephemeral=True
+        )
+
+        def check(m: discord.Message):
+            return (
+                m.author.id == interaction.user.id
+                and m.channel.id == interaction.channel.id
+                and len(m.attachments) > 0
+            )
+
+        try:
+            msg = await self.bot.wait_for("message", check=check, timeout=60)
+        except asyncio.TimeoutError:
+            await interaction.followup.send("انتهت المهلة، لم يتم استلام أي صورة.", ephemeral=True)
+            return
+
+        attachment = msg.attachments[0]
+        if attachment.content_type not in ("image/png", "image/jpeg", "image/gif"):
+            await interaction.followup.send("نوع الملف غير مدعوم. يرجى إرسال صورة PNG أو JPG أو GIF.", ephemeral=True)
+            return
+
+        try:
+            image_bytes = await attachment.read()
+        except Exception as e:
+            await interaction.followup.send(f"تعذر تحميل الصورة: {e}", ephemeral=True)
+            return
+
+        success, result_msg = await role_utils.do_edit_role(
+            self.bot, interaction.guild, interaction.user, role_id, icon_bytes=image_bytes
+        )
+        await interaction.followup.send(result_msg, ephemeral=True)
+
+        try:
+            await msg.delete()
+        except Exception:
+            pass
+
     @discord.ui.button(label="مدة الاشتراك", style=discord.ButtonStyle.gray, custom_id="role_panel_duration")
     async def duration_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         import datetime
@@ -164,8 +215,9 @@ class RolePanelCog(commands.Cog):
             description=(
                 "إضافة عضو: يمكنك إضافة شخصين إلى رتبتك\n"
                 "إزالة عضو: إزالة رتبتك الخاصة من عضو أضفته سابقاً\n"
-                "تعديل الرتبة: تعديل اسم الرتبة الخاصة أو وضع رمز تعبيري كأيقونة لها\n"
+                "تعديل الرتبة: تعديل اسم الرتبة الخاصة أو وضع إيموجي مخصص من إيموجيات هذا السيرفر كأيقونة لها\n"
                 "إزالة الأيقونة: إزالة الأيقونة الحالية الموضوعة على رتبتك الخاصة\n"
+                "رفع صورة كأيقونة: استخدام صورة من جهازك كأيقونة لرتبتك\n"
                 "مدة الاشتراك: عرض تفاصيل اشتراكك والوقت المتبقي حتى انتهائه\n\n"
                 f"ملاحظة: في حال رغبتك بلون جديد أو أيقونة خارجية خاصة بك يرجى التوجه إلى القناة "
                 f"<#{config.TICKET_CHANNEL_ID}> والتواصل مع <@{config.ADMIN_USER_ID}>"
