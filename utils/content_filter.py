@@ -21,10 +21,22 @@ except ImportError:
 
 # قائمة جذور عربية بذيئة/مسيئة شائعة. وسّعها حسب الحاجة (بدون تشكيل).
 ARABIC_BAD_ROOTS = {
+    # ألفاظ جنسية/بذيئة
     "كس", "طيز", "زب", "شرموط", "شرموطة", "قحبة", "عاهرة",
     "منيك", "منيوك", "خرا", "خره", "كسمك", "كسختك",
-    "ابن كلب", "ابن الكلب", "زانية", "لوطي", "خول", "متناك",
-    "نيك", "نياك", "ينيك", "ينيكك",
+    "زانية", "لوطي", "خول", "متناك",
+    "نيك", "نياك", "ينيك", "ينيكك", "معرص", "قواد", "قحبه",
+    "شرموطه", "منيوكه", "واطي", "وسخ", "زبي",
+
+    # شتائم عائلية/شخصية
+    "ابن كلب", "ابن الكلب", "بنت كلب", "كلب", "حمار", "حيوان",
+    "ابن حرام", "بنت حرام", "حقير", "نذل", "وقح", "زفت", "غبي",
+    "احا", "تفو", "يلعن", "لعنة عليك",
+
+    # سب الدين والإلحاد كشتيمة
+    "كافر", "كفر", "ملحد", "الحاد", "لعنة الله", "الله يلعنك",
+    "يلعن دينك", "دين امك", "سب الدين", "شتم الدين", "يخرب دينك",
+    "لعنة على دينك", "دين ابوك",
 }
 
 _LEET_MAP = str.maketrans({
@@ -46,6 +58,16 @@ def _normalize_arabic(text: str) -> str:
     return text
 
 
+def _normalize_arabic_compact(text: str) -> str:
+    """
+    نفس التطبيع العربي، بس مع إزالة كل المسافات والفواصل بين الحروف،
+    عشان نمسك محاولات التحايل متل: 'ك س م ك' أو 'ك.س.م.ك' أو 'ك-س-م-ك'
+    """
+    text = _normalize_arabic(text)
+    text = re.sub(r"[\s\-_.,،*]+", "", text)
+    return text
+
+
 def _normalize_generic(text: str) -> str:
     text = text.lower().translate(_LEET_MAP)
     text = re.sub(r"(.)\1{1,}", r"\1", text)
@@ -61,10 +83,13 @@ def contains_profanity(text: str) -> tuple[bool, str | None]:
         return True, None
 
     normalized_ar = _normalize_arabic(text)
+    normalized_ar_compact = _normalize_arabic_compact(text)
     normalized_generic = _normalize_generic(text)
 
     for root in ARABIC_BAD_ROOTS:
-        if _normalize_arabic(root) in normalized_ar:
+        root_norm = _normalize_arabic(root)
+        root_compact = _normalize_arabic_compact(root)
+        if root_norm in normalized_ar or root_compact in normalized_ar_compact:
             return False, root
 
     if _HAS_BETTER_PROFANITY:
