@@ -36,6 +36,11 @@ AUDIT_CHANNEL_ID = _get_int_env("AUDIT_CHANNEL_ID")
 AUTO_REACT_CHANNEL_IDS = _get_id_list_env("AUTO_REACT_CHANNEL_IDS")
 AUTO_REACT_EMOJI = os.getenv("AUTO_REACT_EMOJI", "📷")
 
+# قنوات "صور فقط": أي رسالة بهاي القنوات ما فيها صورة مرفقة بينحذف تلقائياً
+IMAGE_ONLY_CHANNEL_IDS = _get_id_list_env("IMAGE_ONLY_CHANNEL_IDS")
+# مدة بقاء رسالة التنبيه (بالثواني) قبل ما تنحذف هي كمان، حتى ما تبقى القناة فوضى
+IMAGE_ONLY_WARNING_DELETE_AFTER = _get_int_env("IMAGE_ONLY_WARNING_DELETE_AFTER", 6)
+
 MAX_SHARED_MEMBERS = _get_int_env("MAX_SHARED_MEMBERS", 2)
 
 DB_PATH = os.getenv("DB_PATH", "subscriptions.db")
