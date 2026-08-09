@@ -1,66 +1,44 @@
 """
-كوج "صور فقط": يراقب القنوات المحددة بـ IMAGE_ONLY_CHANNEL_IDS.
-أي رسالة تُرسل بهاي القنوات وما فيها صورة مرفقة (attachment) بتنحذف تلقائياً وفوراً،
-مع إرسال تنبيه قصير للعضو يوضح إنو القناة مخصصة للصور فقط.
+كل إعدادات البوت تُقرأ من متغيرات البيئة هون بمكان واحد.
+لا يوجد أي معرف (ID) مكتوب مباشرة داخل باقي ملفات الكود.
 """
-import logging
-import discord
-from discord.ext import commands
+import os
+from dotenv import load_dotenv
 
-import config
-
-IMAGE_CONTENT_TYPES = ("image/",)
-IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tiff", ".heic")
+load_dotenv()
 
 
-def _has_image_attachment(message: discord.Message) -> bool:
-    for attachment in message.attachments:
-        content_type = (attachment.content_type or "").lower()
-        if content_type.startswith(IMAGE_CONTENT_TYPES):
-            return True
-        if attachment.filename.lower().endswith(IMAGE_EXTENSIONS):
-            return True
-    return False
+def _get_int_env(name: str, default: int = 0) -> int:
+    value = os.getenv(name, str(default))
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
 
 
-class ImageOnlyCog(commands.Cog):
-    def __init__(self, bot: commands.Bot):
-        self.bot = bot
-
-    @commands.Cog.listener()
-    async def on_message(self, message: discord.Message):
-        # تجاهل رسائل البوتات (منها هالبوت نفسه) حتى ما يحذف تنبيهاته أو رسائل بوتات ثانية
-        if message.author.bot:
-            return
-
-        if message.channel.id not in config.IMAGE_ONLY_CHANNEL_IDS:
-            return
-
-        if _has_image_attachment(message):
-            return
-
-        try:
-            await message.delete()
-        except discord.Forbidden:
-            logging.error(
-                f"لا توجد صلاحية لحذف الرسالة {message.id} بالقناة {message.channel.id}. "
-                "تأكد إنو البوت عندو صلاحية 'Manage Messages' بهاي القناة."
-            )
-            return
-        except discord.NotFound:
-            return
-        except Exception as e:
-            logging.error(f"تعذر حذف الرسالة {message.id} بقناة الصور فقط: {e}")
-            return
-
-        try:
-            warning = await message.channel.send(
-                f"{message.author.mention} هاي القناة مخصصة لإرسال الصور فقط 📷",
-                delete_after=config.IMAGE_ONLY_WARNING_DELETE_AFTER,
-            )
-        except Exception as e:
-            logging.error(f"تعذر إرسال رسالة التنبيه بقناة الصور فقط: {e}")
+def _get_id_list_env(name: str) -> list[int]:
+    raw = os.getenv(name, "")
+    return [int(cid.strip()) for cid in raw.split(",") if cid.strip()]
 
 
-async def setup(bot: commands.Bot):
-    await bot.add_cog(ImageOnlyCog(bot))
+TOKEN = os.getenv("DISCORD_TOKEN")
+
+# قنوات ومعرفات أساسية (كانت هاردكود بالكود القديم، الآن كلها من الـ env)
+TICKET_CHANNEL_ID = _get_int_env("TICKET_CHANNEL_ID")
+ADMIN_USER_ID = _get_int_env("ADMIN_USER_ID")
+LOG_CHANNEL_ID = _get_int_env("LOG_CHANNEL_ID")
+VIP_CHANNEL_ID = _get_int_env("VIP_CHANNEL_ID")
+
+# قناة سجل التدقيق (اختيارية) - لو تُركت فارغة، سجل التدقيق بيتخزن بقاعدة البيانات فقط
+# بدون إرسال Embed مباشر لأي قناة
+AUDIT_CHANNEL_ID = _get_int_env("AUDIT_CHANNEL_ID")
+
+AUTO_REACT_CHANNEL_IDS = _get_id_list_env("AUTO_REACT_CHANNEL_IDS")
+AUTO_REACT_EMOJI = os.getenv("AUTO_REACT_EMOJI", "📷")
+
+# قنوات "صور فقط": أي رسالة بهاي القنوات ما فيها صورة مرفقة بينحذف تلقائياً بصمت (بدون رسالة تنبيه)
+IMAGE_ONLY_CHANNEL_IDS = _get_id_list_env("IMAGE_ONLY_CHANNEL_IDS")
+
+MAX_SHARED_MEMBERS = _get_int_env("MAX_SHARED_MEMBERS", 2)
+
+DB_PATH = os.getenv("DB_PATH", "subscriptions.db")
