@@ -45,7 +45,7 @@ async def grant_subscribers_channel_access(guild: discord.Guild, member: discord
         await channel.set_permissions(
             member,
             view_channel=True,
-            send_messages=False,
+            send_messages=True,
             read_message_history=True,
             reason="منح صلاحية مشاهدة قناة كبار المشتركين عند الاشتراك"
         )
