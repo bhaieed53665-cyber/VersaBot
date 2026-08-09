@@ -2,7 +2,9 @@
 كل إعدادات البوت تُقرأ من متغيرات البيئة هون بمكان واحد.
 لا يوجد أي معرف (ID) مكتوب مباشرة داخل باقي ملفات الكود.
 """
+
 import os
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -38,15 +40,19 @@ AUTO_REACT_EMOJI = os.getenv("AUTO_REACT_EMOJI", "📷")
 
 # قنوات "صور فقط": أي رسالة بهاي القنوات ما فيها صورة مرفقة بينحذف تلقائياً
 IMAGE_ONLY_CHANNEL_IDS = _get_id_list_env("IMAGE_ONLY_CHANNEL_IDS")
+
 # مدة بقاء رسالة التنبيه (بالثواني) قبل ما تنحذف هي كمان، حتى ما تبقى القناة فوضى
 IMAGE_ONLY_WARNING_DELETE_AFTER = _get_int_env("IMAGE_ONLY_WARNING_DELETE_AFTER", 6)
 
 MAX_SHARED_MEMBERS = _get_int_env("MAX_SHARED_MEMBERS", 2)
 
-DB_PATH = os.getenv("DB_PATH", "subscriptions.db")
+# رابط الاتصال بقاعدة بيانات PostgreSQL
+# مثال: postgresql://user:password@host:5432/dbname
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 # فحص الصور غير اللائقة (Sightengine) - سجل حساب مجاني من sightengine.com
 SIGHTENGINE_API_USER = os.getenv("SIGHTENGINE_API_USER", "")
 SIGHTENGINE_API_SECRET = os.getenv("SIGHTENGINE_API_SECRET", "")
+
 # عتبة الحساسية (0 إلى 1) - كل ما قلّت كل ما صار الفحص أشد صرامة
 NSFW_THRESHOLD = float(os.getenv("NSFW_THRESHOLD", "0.55"))
