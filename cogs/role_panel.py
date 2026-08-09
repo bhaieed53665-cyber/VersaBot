@@ -26,6 +26,28 @@ class RoleEditModal(discord.ui.Modal, title="تعديل الرتبة الخاص�
         await interaction.followup.send(msg, ephemeral=True)
 
 
+class EmojiIconModal(discord.ui.Modal, title="استخدام إيموجي كأيقونة"):
+    emoji = discord.ui.TextInput(
+        label="الإيموجي",
+        placeholder="الصق هنا إيموجي عادي أو إيموجي مخصص من هذا السيرفر",
+        required=True,
+        max_length=20,
+    )
+
+    def __init__(self, bot, role_id: int):
+        super().__init__()
+        self.bot = bot
+        self.role_id = role_id
+
+    async def on_submit(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        success, msg = await role_utils.do_edit_role(
+            self.bot, interaction.guild, interaction.user, self.role_id,
+            emoji=self.emoji.value,
+        )
+        await interaction.followup.send(msg, ephemeral=True)
+
+
 class RemoveMemberSelect(discord.ui.Select):
     def __init__(self, bot, role_id: int, options: list[discord.SelectOption]):
         self.bot = bot
@@ -178,6 +200,14 @@ class RolePanelView(discord.ui.View):
         )
         await interaction.followup.send(result_msg, ephemeral=True)
 
+    @discord.ui.button(label="استخدام إيموجي كأيقونة", style=discord.ButtonStyle.blurple, custom_id="role_panel_emoji_icon")
+    async def emoji_icon_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        role_id, error = await role_utils.get_owner_single_role_id(interaction.guild.id, interaction.user.id)
+        if error:
+            await interaction.response.send_message(error, ephemeral=True)
+            return
+        await interaction.response.send_modal(EmojiIconModal(self.bot, role_id))
+
     @discord.ui.button(label="مدة الاشتراك", style=discord.ButtonStyle.gray, custom_id="role_panel_duration")
     async def duration_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         import datetime
@@ -225,6 +255,7 @@ class RolePanelCog(commands.Cog):
                 "تعديل الرتبة: تعديل اسم الرتبة الخاصة\n"
                 "إزالة الأيقونة: إزالة الأيقونة الحالية الموضوعة على رتبتك الخاصة\n"
                 "رفع صورة كأيقونة: استخدام صورة من جهازك كأيقونة لرتبتك\n"
+                "استخدام إيموجي كأيقونة: استخدام إيموجي (من هذا السيرفر أو من خارجه) كأيقونة لرتبتك\n"
                 "مدة الاشتراك: عرض تفاصيل اشتراكك والوقت المتبقي حتى انتهائه\n\n"
                 f"ملاحظة: في حال رغبتك بلون جديد أو أيقونة خارجية خاصة بك يرجى التوجه إلى القناة "
                 f"<#{config.TICKET_CHANNEL_ID}> والتواصل مع <@{config.ADMIN_USER_ID}>"
