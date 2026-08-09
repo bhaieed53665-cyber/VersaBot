@@ -10,6 +10,7 @@ import discord
 import config
 import database as db
 from utils.audit import log_action
+from utils.content_filter import contains_profanity
 
 MAX_SHARED_MEMBERS = config.MAX_SHARED_MEMBERS
 
@@ -226,6 +227,9 @@ async def do_edit_role(bot, guild: discord.Guild, owner: discord.Member, role_id
 
     edit_kwargs = {}
     if name:
+        is_clean, _matched = contains_profanity(name)
+        if not is_clean:
+            return False, "لا يمكنك استخدام هذا الاسم لأنه يحتوي على لفظ غير لائق. الرجاء اختيار اسم آخر."
         edit_kwargs['name'] = name
 
     if color:
