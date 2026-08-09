@@ -6,6 +6,7 @@ from discord.ext import commands
 import config
 import database as db
 from utils import roles as role_utils
+from utils.nsfw_check import is_image_nsfw
 
 
 class RoleEditModal(discord.ui.Modal, title="تعديل الرتبة الخاصة"):
@@ -156,11 +157,21 @@ class RolePanelView(discord.ui.View):
             await interaction.followup.send(f"تعذر تحميل الصورة: {e}", ephemeral=True)
             return
 
+        # فحص الصورة عن وجود محتوى عري/غير لائق قبل قبولها
+        is_nsfw, score = await is_image_nsfw(image_bytes)
+
         # نحذف الرسالة فوراً بمجرد ما نسحب بيانات الصورة منها، قبل ما نبلش نطبقها كأيقونة
         try:
             await msg.delete()
         except Exception:
             pass
+
+        if is_nsfw:
+            await interaction.followup.send(
+                "❌ تم رفض هذه الصورة لأنها تحتوي على محتوى غير لائق. الرجاء اختيار صورة أخرى مناسبة.",
+                ephemeral=True
+            )
+            return
 
         success, result_msg = await role_utils.do_edit_role(
             self.bot, interaction.guild, interaction.user, role_id, icon_bytes=image_bytes
