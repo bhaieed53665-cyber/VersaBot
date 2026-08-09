@@ -17,6 +17,7 @@ INITIAL_EXTENSIONS = [
     "cogs.role_panel",
     "cogs.announcements",
     "cogs.audit",
+    "cogs.image_only",
 ]
 
 
@@ -48,6 +49,11 @@ async def on_ready():
         logging.info(f"ميزة التفاعل التلقائي مفعّلة على القنوات: {config.AUTO_REACT_CHANNEL_IDS}")
     else:
         logging.warning("لم يتم تحديد أي قنوات لميزة التفاعل التلقائي لأن AUTO_REACT_CHANNEL_IDS فارغة.")
+
+    if config.IMAGE_ONLY_CHANNEL_IDS:
+        logging.info(f"ميزة (صور فقط) مفعّلة على القنوات: {config.IMAGE_ONLY_CHANNEL_IDS}")
+    else:
+        logging.warning("لم يتم تحديد أي قنوات لميزة (صور فقط) لأن IMAGE_ONLY_CHANNEL_IDS فارغة.")
 
 
 if __name__ == "__main__":
