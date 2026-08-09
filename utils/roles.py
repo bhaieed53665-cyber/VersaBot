@@ -6,6 +6,7 @@ import asyncio
 import logging
 import re
 import discord
+import aiohttp
 
 import config
 import database as db
@@ -272,12 +273,20 @@ async def do_edit_role(bot, guild: discord.Guild, owner: discord.Member, role_id
 
         if CUSTOM_EMOJI_RE.match(emoji):
             # إيموجي مخصص من أحد السيرفرات - الـ API لا يقبله كنص
-            # لذلك نحمّل صورته الفعلية ونستخدمها كأيقونة صورة بدل ذلك
+            # لذلك نحمّل صورته الفعلية ونستخدمها كأيقونة صورة بدل ذلك.
+            # ملاحظة: PartialEmoji.from_str() ينشئ كائن غير مرتبط بأي اتصال فعلي بالبوت
+            # (Invalid state (no ConnectionState provided)) لذلك نحمّل الصورة يدوياً عبر رابط CDN مباشرة.
+            partial = discord.PartialEmoji.from_str(emoji)
+            ext = "gif" if partial.animated else "png"
+            cdn_url = f"https://cdn.discordapp.com/emojis/{partial.id}.{ext}"
             try:
-                partial = discord.PartialEmoji.from_str(emoji)
-                downloaded = await partial.read()
-            except discord.NotFound:
-                return False, "تعذر إيجاد هذا الإيموجي، من المحتمل أنه محذوف."
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(cdn_url, timeout=15) as resp:
+                        if resp.status == 404:
+                            return False, "تعذر إيجاد هذا الإيموجي، من المحتمل أنه محذوف."
+                        if resp.status != 200:
+                            return False, f"تعذر تحميل صورة الإيموجي المخصص (رمز الحالة: {resp.status})."
+                        downloaded = await resp.read()
             except Exception as e:
                 return False, f"تعذر تحميل صورة الإيموجي المخصص: {e}"
             edit_kwargs['display_icon'] = downloaded
