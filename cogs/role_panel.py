@@ -10,11 +10,6 @@ from utils import roles as role_utils
 
 class RoleEditModal(discord.ui.Modal, title="تعديل الرتبة الخاصة"):
     name = discord.ui.TextInput(label="الاسم الجديد", required=False, max_length=100)
-    emoji = discord.ui.TextInput(
-        label="إيموجي مخصص من هذا السيرفر (اختياري)",
-        placeholder="مثال: <:اسم_الإيموجي:1234567890> — إيموجي عادي غير مدعوم بهذا السيرفر",
-        required=False, max_length=60
-    )
 
     def __init__(self, bot, role_id: int):
         super().__init__()
@@ -25,7 +20,7 @@ class RoleEditModal(discord.ui.Modal, title="تعديل الرتبة الخاص�
         await interaction.response.defer(ephemeral=True)
         success, msg = await role_utils.do_edit_role(
             self.bot, interaction.guild, interaction.user, self.role_id,
-            name=self.name.value or None, emoji=self.emoji.value or None,
+            name=self.name.value or None,
         )
         await interaction.followup.send(msg, ephemeral=True)
 
@@ -215,7 +210,7 @@ class RolePanelCog(commands.Cog):
             description=(
                 "إضافة عضو: يمكنك إضافة شخصين إلى رتبتك\n"
                 "إزالة عضو: إزالة رتبتك الخاصة من عضو أضفته سابقاً\n"
-                "تعديل الرتبة: تعديل اسم الرتبة الخاصة أو وضع إيموجي مخصص من إيموجيات هذا السيرفر كأيقونة لها\n"
+                "تعديل الرتبة: تعديل اسم الرتبة الخاصة\n"
                 "إزالة الأيقونة: إزالة الأيقونة الحالية الموضوعة على رتبتك الخاصة\n"
                 "رفع صورة كأيقونة: استخدام صورة من جهازك كأيقونة لرتبتك\n"
                 "مدة الاشتراك: عرض تفاصيل اشتراكك والوقت المتبقي حتى انتهائه\n\n"
