@@ -24,10 +24,10 @@ import discord
 import config
 import database as db
 
-LOG_LINE_1 = re.compile(r"اسم المشترك:\s*<@!?(\d+)>")
-LOG_LINE_2_TIME = re.compile(r"مدة الاشتراك:\s*<t:(\d+):R>")
+LOG_LINE_1 = re.compile(r"المشترك\s*:\s*<@!?(\d+)>")
+LOG_LINE_2_TIME = re.compile(r"الاشتراك\s*:\s*<t:(\d+):R>")
 LOG_LINE_2_EXPIRED = re.compile(r"انتهى")
-LOG_LINE_3 = re.compile(r"اسم الرتبة:\s*<@&(\d+)>")
+LOG_LINE_3 = re.compile(r"الرتب[ةه]\s*:\s*<@&(\d+)>")
 
 
 async def main():
@@ -54,30 +54,32 @@ async def main():
             count_skipped_expired = 0
             count_skipped_unparsed = 0
 
+            # رموز اتجاه/تنسيق مخفية ممكن ديسكورد يحطها جوا النص العربي المختلط بالمنشنز
+            INVISIBLE_CHARS = re.compile(r"[\u200b-\u200f\u202a-\u202e\u2066-\u2069\ufeff]")
+
             async for message in log_channel.history(limit=None, oldest_first=True):
                 if not message.author.bot:
                     continue
 
-                lines = message.content.split("\n")
-                if len(lines) < 3:
-                    count_skipped_unparsed += 1
-                    continue
+                content = INVISIBLE_CHARS.sub("", message.content)
 
-                m1 = LOG_LINE_1.search(lines[0])
-                m3 = LOG_LINE_3.search(lines[2])
+                m1 = LOG_LINE_1.search(content)
+                m3 = LOG_LINE_3.search(content)
 
                 if not m1 or not m3:
                     count_skipped_unparsed += 1
+                    print(f"--- تعذر تحليل رسالة id={message.id} ---")
+                    print(repr(content))
                     continue
 
                 user_id = int(m1.group(1))
                 role_id = int(m3.group(1))
 
-                if LOG_LINE_2_EXPIRED.search(lines[1]):
+                if LOG_LINE_2_EXPIRED.search(content):
                     count_skipped_expired += 1
                     continue
 
-                m2 = LOG_LINE_2_TIME.search(lines[1])
+                m2 = LOG_LINE_2_TIME.search(content)
                 if not m2:
                     count_skipped_unparsed += 1
                     continue
