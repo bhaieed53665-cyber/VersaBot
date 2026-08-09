@@ -156,15 +156,16 @@ class RolePanelView(discord.ui.View):
             await interaction.followup.send(f"تعذر تحميل الصورة: {e}", ephemeral=True)
             return
 
-        success, result_msg = await role_utils.do_edit_role(
-            self.bot, interaction.guild, interaction.user, role_id, icon_bytes=image_bytes
-        )
-        await interaction.followup.send(result_msg, ephemeral=True)
-
+        # نحذف الرسالة فوراً بمجرد ما نسحب بيانات الصورة منها، قبل ما نبلش نطبقها كأيقونة
         try:
             await msg.delete()
         except Exception:
             pass
+
+        success, result_msg = await role_utils.do_edit_role(
+            self.bot, interaction.guild, interaction.user, role_id, icon_bytes=image_bytes
+        )
+        await interaction.followup.send(result_msg, ephemeral=True)
 
     @discord.ui.button(label="مدة الاشتراك", style=discord.ButtonStyle.gray, custom_id="role_panel_duration")
     async def duration_button(self, interaction: discord.Interaction, button: discord.ui.Button):
