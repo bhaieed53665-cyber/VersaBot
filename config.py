@@ -44,3 +44,9 @@ IMAGE_ONLY_WARNING_DELETE_AFTER = _get_int_env("IMAGE_ONLY_WARNING_DELETE_AFTER"
 MAX_SHARED_MEMBERS = _get_int_env("MAX_SHARED_MEMBERS", 2)
 
 DB_PATH = os.getenv("DB_PATH", "subscriptions.db")
+
+# فحص الصور غير اللائقة (Sightengine) - سجل حساب مجاني من sightengine.com
+SIGHTENGINE_API_USER = os.getenv("SIGHTENGINE_API_USER", "")
+SIGHTENGINE_API_SECRET = os.getenv("SIGHTENGINE_API_SECRET", "")
+# عتبة الحساسية (0 إلى 1) - كل ما قلّت كل ما صار الفحص أشد صرامة
+NSFW_THRESHOLD = float(os.getenv("NSFW_THRESHOLD", "0.55"))
