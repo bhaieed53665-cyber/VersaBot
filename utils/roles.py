@@ -4,6 +4,7 @@
 """
 import asyncio
 import logging
+import re
 import discord
 
 import config
@@ -11,6 +12,23 @@ import database as db
 from utils.audit import log_action
 
 MAX_SHARED_MEMBERS = config.MAX_SHARED_MEMBERS
+
+# يطابق صيغة الإيموجي المخصص من السيرفر: <:name:id> أو المتحرك <a:name:id>
+CUSTOM_EMOJI_RE = re.compile(r'^<a?:\w+:\d+>$')
+
+# محارف غير مرئية (اتجاه النص Bidi، فراغ بعرض صفري..) قد تنسخ مع الإيموجي
+# من لوحات مفاتيح أو تطبيقات معينة وتسبب رفض ديسكورد للإيموجي رغم أنه سليم بالعين المجردة
+_INVISIBLE_CHARS = (
+    '\u200b', '\u200c', '\u200d', '\u200e', '\u200f',
+    '\u202a', '\u202b', '\u202c', '\u202d', '\u202e',
+    '\u2066', '\u2067', '\u2068', '\u2069', '\ufeff',
+)
+
+
+def _sanitize_emoji_text(value: str) -> str:
+    for ch in _INVISIBLE_CHARS:
+        value = value.replace(ch, '')
+    return value.strip()
 
 
 async def grant_subscribers_channel_access(guild: discord.Guild, member: discord.Member):
@@ -231,10 +249,50 @@ async def do_edit_role(bot, guild: discord.Guild, owner: discord.Member, role_id
     elif color2:
         return False, "يجب تحديد اللون الأول قبل اللون الثاني."
 
-    if emoji:
-        edit_kwargs['display_icon'] = emoji
-    elif icon_bytes:
+    if emoji or icon_bytes:
+        # ميزة أيقونة الرتبة (سواء إيموجي أو صورة) تتطلب مستوى تعزيز 2 على الأقل
+        # نتحقق مسبقاً بدل ما ننتظر خطأ مبهم من ديسكورد
+        if guild.premium_tier < 2:
+            return False, (
+                "ميزة أيقونة الرتبة تتطلب وصول السيرفر إلى مستوى تعزيز (Boost) 2 على الأقل. "
+                f"مستوى السيرفر الحالي: {guild.premium_tier}."
+            )
+
+    if icon_bytes:
+        # صورة مرفوعة مباشرة (من زر رفع صورة) - لها الأولوية
         edit_kwargs['display_icon'] = icon_bytes
+    elif emoji:
+        emoji = _sanitize_emoji_text(emoji)
+        if not emoji:
+            return False, "يرجى إدخال رمز تعبيري صالح."
+
+        if CUSTOM_EMOJI_RE.match(emoji):
+            # إيموجي مخصص من أحد السيرفرات - الـ API لا يقبله كنص
+            # لذلك نحمّل صورته الفعلية ونستخدمها كأيقونة صورة بدل ذلك
+            try:
+                partial = discord.PartialEmoji.from_str(emoji)
+                downloaded = await partial.read()
+            except discord.NotFound:
+                return False, "تعذر إيجاد هذا الإيموجي، من المحتمل أنه محذوف."
+            except Exception as e:
+                return False, f"تعذر تحميل صورة الإيموجي المخصص: {e}"
+            edit_kwargs['display_icon'] = downloaded
+        else:
+            # لو المستخدم كتب شورت-كود نصي مثل :fire: بدل إيموجي حقيقي
+            if re.match(r'^:[a-zA-Z0-9_+\-]+:$', emoji):
+                return False, (
+                    "يبدو أنك كتبت اسم الإيموجي كنص (مثل :fire:) بدل الرمز التعبيري الفعلي.\n"
+                    "لكن بالإضافة لذلك: هذا السيرفر لا يدعم أصلاً الإيموجي اليونيكود العادي كأيقونة رتبة "
+                    "(كما هو موضح بإعدادات ديسكورد نفسها: \"Upload an image or pick a custom emoji from this server\"). "
+                    "استخدم إيموجي مخصص من إيموجيات هذا السيرفر، أو زر \"رفع صورة كأيقونة\" بدلاً من ذلك."
+                )
+            # هذا السيرفر (حسب إعدادات ديسكورد الظاهرة له) لا يدعم إيموجي يونيكود عادي كأيقونة رتبة -
+            # فقط صورة مرفوعة أو إيموجي مخصص من إيموجيات السيرفر نفسه
+            return False, (
+                "هذا السيرفر لا يدعم الإيموجي اليونيكود العادي كأيقونة للرتبة. "
+                "الخيارات المتاحة هي فقط: إيموجي مخصص من إيموجيات هذا السيرفر (وليس إيموجي عادي)، "
+                "أو صورة مرفوعة عبر زر \"رفع صورة كأيقونة\"."
+            )
 
     if not edit_kwargs:
         return False, "يجب تحديد عنصر واحد على الأقل تريد تغييره."
@@ -247,9 +305,15 @@ async def do_edit_role(bot, guild: discord.Guild, owner: discord.Member, role_id
     except discord.Forbidden:
         return False, "لا تتوفر لدي صلاحية كافية لتعديل هذه الرتبة."
     except discord.HTTPException as e:
-        if 'icon' in str(e).lower():
+        err_text = str(e).lower()
+        if 'unknown emoji' in err_text:
+            return False, (
+                "لم يتم التعرف على الرمز التعبيري. تأكد أنك تستخدم إيموجي يونيكود عادي "
+                "(وليس إيموجي مخصص من السيرفر)."
+            )
+        if 'icon' in err_text:
             return False, "تعذر تعيين الأيقونة. تتطلب هذه الميزة وصول السيرفر إلى مستوى تعزيز Boost Level 2 أو أعلى."
-        if 'colour' in str(e).lower() or 'color' in str(e).lower():
+        if 'colour' in err_text or 'color' in err_text:
             return False, "تعذر تعيين الألوان المتحركة. تتطلب هذه الميزة (Enhanced Role Styles) حصول السيرفر على 3 تعزيزات على الأقل."
         return False, f"حدث خطأ أثناء التعديل: {e}"
 
